@@ -125,6 +125,14 @@ worksheet = workbook.add_worksheet()
 worksheet.set_column('A:A', 12)
 worksheet.set_column('B:B', 15)
 worksheet.set_column('C:C', 50)
+worksheet.set_column('D:D', 50)
+
+formatUpdateInfo = workbook.add_format()
+formatUpdateInfo.set_font_color('31869B')
+formatUpdateInfo.set_align('top')
+formatUpdateInfo.set_bold()
+
+worksheet.merge_range('D3:D12', '修改点见禅道' + taskNum, formatUpdateInfo)
 
 formatDateAndAuthor = workbook.add_format()
 formatDateAndAuthor.set_bottom(1)
