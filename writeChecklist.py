@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 #coding=utf-8
-# Date: 2017/08/31
+# Version: v1.0.2
+# Date: 2017/09/01
 # Author: chenxs
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
+
+def red(sText):
+    return '\033[0;31m ' + sText + ' \033[0m'
+def green(sText):
+    return '\033[0;32m ' + sText + ' \033[0m'
+def yellow(sText):
+    return '\033[0;33m ' + sText + ' \033[0m'
+def greenAndYellow(sText1, sText2):
+    return green(sText1) + yellow(sText2)
 
 #################
 # get infos
@@ -69,21 +79,19 @@ modeItems = 1
 def getValueInLine(sLine, sKey, sMode):
     if sMode == modeSystemprop:
         if sKey in sLine:
-            sLine = sLine.replace(chr(32), "")
-            sLine = sLine.replace(chr(9), "")
-            sLine = sLine.replace("\n", "")
-            if re.match("^" + sKey + "=", sLine):
+            sLine = sLine.strip()
+            if sLine.startswith(sKey):
                 sLine = sLine.split("=")
-                return sLine[1]
+                return sLine[1].strip()
     elif sMode == modeItems:
         if sKey in sLine:
-            sLine = sLine.replace(chr(9), chr(32))
-            sLine = sLine.replace("\n", "")
-            if re.match("^" + sKey, sLine):
+            sLine = sLine.strip()
+            sLine = sLine.replace(chr(9), " ")
+            if sLine.startswith(sKey):
                 while "  " in sLine:
-                    sLine = sLine.replace(chr(32) + chr(32), chr(32))
-                sLine = sLine.split(chr(32))
-                return sLine[1]
+                    sLine = sLine.replace("  ", " ")
+                sLine = sLine.split(" ")
+                return sLine[1].strip()
     return ""
 
 def getValueInFile(sFilePath, sKey, sMode):
@@ -100,16 +108,29 @@ def getValueInFile(sFilePath, sKey, sMode):
 displayId = getValueInFile(sSystempropPath, "ro.build.display.id", modeSystemprop)
 lcm = getValueInFile(sItemsPath, "LCM", modeItems)
 touchpanel = getValueInFile(sItemsPath, "touchpanel.gsl.modle", modeItems)
-modem = ""
-if checkFileExist(sProjectConfigPath_opt, False):
-    modem = getValueInFile(sProjectConfigPath_opt, "CUSTOM_MODEM", modeSystemprop)
-    findInPrjFlag = (modem == "")
-else:
-    findInPrjFlag = True
 
-if findInPrjFlag:
-    if checkFileExist(sProjectConfigPath_prj, False):
-        modem = getValueInFile(sProjectConfigPath_prj, "CUSTOM_MODEM", modeSystemprop)
+if ("8127" in pwd) or ("8163" in pwd) or ("8167" in pwd):
+    isWifiPlatform = True
+else:
+    isWifiPlatform = False
+
+if not isWifiPlatform:
+    modem = ""
+    if checkFileExist(sProjectConfigPath_opt, False):
+        modem = getValueInFile(sProjectConfigPath_opt, "CUSTOM_MODEM", modeSystemprop)
+        findInPrjFlag = (modem == "")
+    else:
+        findInPrjFlag = True
+    
+    if findInPrjFlag:
+        if checkFileExist(sProjectConfigPath_prj, False):
+            modem = getValueInFile(sProjectConfigPath_prj, "CUSTOM_MODEM", modeSystemprop)
+    
+    if (modem != "") and (" " in modem):
+        multiModemFlag = True
+        modem = modem.split(" ")
+    else:
+        multiModemFlag = False
 
 ###############
 # write excel
@@ -119,12 +140,19 @@ date = time.strftime('%Y/%m/%d',time.localtime(time.time()))
 import commands
 (status, author) = commands.getstatusoutput("git config --global user.name")
 
+checklistDirPath = '../Checklist'
+checklistFilePath = '../Checklist/checklist_tmp.xlsx'
+if not os.path.exists(checklistDirPath):
+    os.makedirs(checklistDirPath)
+if os.path.exists(checklistFilePath):
+    os.remove(checklistFilePath)
+
 import xlsxwriter
-workbook = xlsxwriter.Workbook('checklist_tmp.xlsx')
+workbook = xlsxwriter.Workbook(checklistFilePath)
 worksheet = workbook.add_worksheet()
 worksheet.set_column('A:A', 12)
 worksheet.set_column('B:B', 15)
-worksheet.set_column('C:C', 60)
+worksheet.set_column('C:C', 70)
 worksheet.set_column('D:D', 60)
 
 formatUpdateInfo = workbook.add_format()
@@ -170,6 +198,11 @@ def setInfoValueFormat(setBold, color):
     formatObj.set_font_size(12)
     return formatObj
 
+def writeCellValue(sValue, oFormat):
+    global rowNum
+    worksheet.write(columnNum + rowNum, sValue, oFormat)
+    rowNum = str(int(rowNum) + 1)
+
 formatBlue = setInfoValueFormat(True, 'blue')
 formatOrange = setInfoValueFormat(False, 'E26B0A')
 formatRed = setInfoValueFormat(True, 'red')
@@ -177,28 +210,67 @@ formatGreen = setInfoValueFormat(True, '76933C')
 formatPink = setInfoValueFormat(True, 'pink')
 formatGray = setInfoKeyFormat('808080')
 
-worksheet.write('A3', date, formatDateAndAuthor)
-worksheet.write('A4', author, formatDateAndAuthor)
+columnNum = 'A'
+rowNum = '3'
+writeCellValue(date, formatDateAndAuthor)
+writeCellValue(author, formatDateAndAuthor)
 
-worksheet.write('B3', "版本号: ", formatGray)
-worksheet.write('B4', "项目-客户: ", formatGray)
-worksheet.write('B5', "工程: ", formatGray)
-worksheet.write('B6', "屏驱动: ", formatGray)
-worksheet.write('B7', "TP驱动: ", formatGray)
-worksheet.write('B8', "modem: ", formatGray)
-worksheet.write('B9', "提交节点: ", formatGray)
-worksheet.write('B10', "分支名: ", formatGray)
-worksheet.write('B11', "代码路径: ", formatGray)
-worksheet.write('B12', "禅道号: ", formatGray)
+columnNum = 'B'
+rowNum = '3'
+writeCellValue("版本号: ", formatGray)
+writeCellValue("项目-客户: ", formatGray)
+writeCellValue("工程: ", formatGray)
+writeCellValue("屏驱动: ", formatGray)
+writeCellValue("TP驱动: ", formatGray)
+if not isWifiPlatform:
+    if not multiModemFlag:
+        writeCellValue("modem: ", formatGray)
+    else:
+        modemCount = 0
+        for md in modem:
+            modemCount = modemCount + 1
+            writeCellValue("modem" + str(modemCount) + ": ", formatGray)
+writeCellValue("提交节点: ", formatGray)
+writeCellValue("分支名: ", formatGray)
+writeCellValue("代码路径: ", formatGray)
+writeCellValue("禅道号: ", formatGray)
 
-worksheet.write('C3', displayId, formatBlue)
-worksheet.write('C4', roco_project + "-" + customName, formatRed)
-worksheet.write('C5', target_product, formatRed)
-worksheet.write('C6', lcm, formatPink)
-worksheet.write('C7', touchpanel, formatPink)
-worksheet.write('C8', modem, formatPink)
-worksheet.write('C9', commitId, formatOrange)
-worksheet.write('C10', branch, formatGreen)
-worksheet.write('C11', pwd, formatGreen)
-worksheet.write('C12', taskNum, formatGreen)
+columnNum = 'C'
+rowNum = '3'
+writeCellValue(displayId, formatBlue)
+writeCellValue(roco_project + "-" + customName, formatRed)
+writeCellValue(target_product, formatRed)
+writeCellValue(lcm, formatPink)
+writeCellValue(touchpanel, formatPink)
+if not isWifiPlatform:
+    if not multiModemFlag:
+        writeCellValue(modem, formatPink)
+    else:
+        for md in modem:
+            writeCellValue(md, formatPink)
+writeCellValue(commitId, formatOrange)
+writeCellValue(branch, formatGreen)
+writeCellValue(pwd, formatGreen)
+writeCellValue(taskNum, formatGreen)
+
 workbook.close()
+
+print(red("########## start ##########"))
+print(greenAndYellow("版本号: ", displayId))
+print(greenAndYellow("项目-客户:", roco_project + "-" + customName))
+print(greenAndYellow("工程: ", target_product))
+print(greenAndYellow("屏驱动: ", lcm))
+print(greenAndYellow("TP驱动: ", touchpanel))
+if not isWifiPlatform:
+    if not multiModemFlag:
+        print(greenAndYellow("modem: ", modem))
+    else:
+        modemCount = 0
+        for md in modem:
+            modemCount = modemCount + 1
+            print(greenAndYellow("modem" + str(modemCount) + ": ", md))
+print(greenAndYellow("提交节点: ", commitId))
+print(greenAndYellow("分支名: ", branch))
+print(greenAndYellow("代码路径: ", pwd))
+print(greenAndYellow("禅道号: ", taskNum))
+print(red("########## end ##########"))
