@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #coding=utf-8
-# Version: v1.0.2
+# Version: v1.0.3
 # Date: 2017/09/01
 # Author: chenxs
 
@@ -67,6 +67,7 @@ sItemsPath = "device/joya_sz/" + target_product + "/roco/" + roco_project + "/it
 sSystempropPath = "device/joya_sz/" + target_product + "/roco/" + roco_project + "/system.prop"
 sProjectConfigPath_opt = "device/joya_sz/" + target_product + "/roco/" + roco_project + "/ProjectConfig.mk"
 sProjectConfigPath_prj = "device/joya_sz/" + target_product + "/ProjectConfig.mk"
+sDevicemk = "device/mediatek/common/device.mk"
 
 checkFileExist(sItemsPath, True)
 checkFileExist(sSystempropPath, True)
@@ -75,23 +76,45 @@ import re
 
 modeSystemprop = 0
 modeItems = 1
+modeDevicemk = 2
+
+def getValueForSystemprop(sLine, sKey, sMode):
+    if sKey in sLine:
+        sLine = sLine.strip()
+        if sLine.startswith(sKey):
+            sLine = sLine.split("=")
+            return sLine[1].strip()
+    return ""
+
+def getValueForItems(sLine, sKey, sMode):
+    if sKey in sLine:
+        sLine = sLine.strip()
+        sLine = sLine.replace(chr(9), " ")
+        if sLine.startswith(sKey):
+            while "  " in sLine:
+                sLine = sLine.replace("  ", " ")
+            sLine = sLine.split(" ")
+            return sLine[1].strip()
+    return ""
+
+def getValueForDevicemk(sLine, sKey, sMode):
+    if sKey in sLine:
+        sLine = sLine.strip()
+        if sLine.startswith("#"):
+            return ""
+        else:
+            sLine = sLine.replace("+=", "")
+            sLine = sLine.split("=")
+            return sLine[1].strip()
+    return ""
 
 def getValueInLine(sLine, sKey, sMode):
     if sMode == modeSystemprop:
-        if sKey in sLine:
-            sLine = sLine.strip()
-            if sLine.startswith(sKey):
-                sLine = sLine.split("=")
-                return sLine[1].strip()
+        return getValueForSystemprop(sLine, sKey, sMode)
     elif sMode == modeItems:
-        if sKey in sLine:
-            sLine = sLine.strip()
-            sLine = sLine.replace(chr(9), " ")
-            if sLine.startswith(sKey):
-                while "  " in sLine:
-                    sLine = sLine.replace("  ", " ")
-                sLine = sLine.split(" ")
-                return sLine[1].strip()
+        return getValueForItems(sLine, sKey, sMode)
+    elif sMode == modeDevicemk:
+        return getValueForDevicemk(sLine, sKey, sMode)
     return ""
 
 def getValueInFile(sFilePath, sKey, sMode):
@@ -106,6 +129,9 @@ def getValueInFile(sFilePath, sKey, sMode):
 
 
 displayId = getValueInFile(sSystempropPath, "ro.build.display.id", modeSystemprop)
+customVersion = getValueInFile(sSystempropPath, "ro.custom.build.version", modeSystemprop)
+if customVersion == "":
+    customVersion = getValueInFile(sDevicemk, "ro.custom.build.version", modeDevicemk)
 lcm = getValueInFile(sItemsPath, "LCM", modeItems)
 touchpanel = getValueInFile(sItemsPath, "touchpanel.gsl.modle", modeItems)
 
@@ -218,6 +244,8 @@ writeCellValue(author, formatDateAndAuthor)
 columnNum = 'B'
 rowNum = '3'
 writeCellValue("版本号: ", formatGray)
+if customVersion != "":
+    writeCellValue("自定义版本号: ", formatGray)
 writeCellValue("项目-客户: ", formatGray)
 writeCellValue("工程: ", formatGray)
 writeCellValue("屏驱动: ", formatGray)
@@ -238,6 +266,8 @@ writeCellValue("禅道号: ", formatGray)
 columnNum = 'C'
 rowNum = '3'
 writeCellValue(displayId, formatBlue)
+if customVersion != "":
+    writeCellValue(customVersion, formatBlue)
 writeCellValue(roco_project + "-" + customName, formatRed)
 writeCellValue(target_product, formatRed)
 writeCellValue(lcm, formatPink)
@@ -257,6 +287,8 @@ workbook.close()
 
 print(red("########## start ##########"))
 print(greenAndYellow("版本号: ", displayId))
+if customVersion != "":
+    print(greenAndYellow("自定义版本号: ", customVersion))
 print(greenAndYellow("项目-客户:", roco_project + "-" + customName))
 print(greenAndYellow("工程: ", target_product))
 print(greenAndYellow("屏驱动: ", lcm))
